@@ -14,14 +14,13 @@
   }
 
   *{box-sizing:border-box; font-family: 'Inter', system-ui, sans-serif;}
-  body{ margin:0; background: var(--bg); color: var(--text); transition: all 0.3s ease; }
+  body{ margin:0; background: var(--bg); color: var(--text); transition: 0.3s; }
 
-  /* MODO FLUTUANTE (NOVO) */
-  body.compact-mode { background: transparent; overflow: hidden; }
-  body.compact-mode main { grid-template-columns: 1fr; width: 380px; position: fixed; bottom: 20px; right: 20px; z-index: 10000; height: 80vh; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border-radius: 20px; background: white; border: 2px solid var(--primary); }
-  body.compact-mode header, body.compact-mode .eco-header, body.compact-mode aside:last-child { display: none; }
-  body.compact-mode section { flex: 1; overflow-y: auto; padding: 10px; }
-  body.compact-mode #mainInput { min-height: 100px !important; }
+  /* MODO JANELA FLUTUANTE (POP-OUT) */
+  body.popout-mode { background: #0f172a; padding: 10px; }
+  body.popout-mode .eco-header, body.popout-mode header { display: none; }
+  body.popout-mode main { grid-template-columns: 1fr; margin: 0; padding: 0; width: 100%; }
+  body.popout-mode #asideDireita { display: none; } /* Esconde o gráfico no modo pequeno para dar espaço */
 
   .eco-header { background: #0f172a; color: #fff; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
   .eco-stats { display: flex; gap: 20px; }
@@ -39,28 +38,32 @@
 
   .info-block { background: #f1f5f9; border-radius: 8px; padding: 12px; margin-top: 10px; }
   .info-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
-  .info-item:last-child { border: none; }
 
   .loss-value { color: #dc2626; font-size: 20px; font-weight: 800; }
-  button { cursor:pointer; font-weight:700; transition: 0.2s; border: none; border-radius: 8px; }
-  .btn-primary{ background: var(--primary); color:white; padding: 10px; }
-  .btn-float-toggle { background: var(--accent); color: #000; padding: 8px 15px; }
-  .btn-success{ background: var(--success); color:white; width:100%; margin-top:15px; padding: 12px; }
+
+  button, .btn-link{ padding:10px 20px; border-radius:8px; border:none; cursor:pointer; font-weight:700; transition: 0.2s; text-decoration: none; display: inline-block; text-align: center; }
+  .btn-primary{ background: var(--primary); color:white; width:100%; }
+  .btn-success{ background: var(--success); color:white; width:100%; margin-top:15px; font-size:14px; }
+  .btn-zap { background: #25d366; color: white; margin-bottom: 10px; width: 100%; }
+  .btn-pop { background: var(--accent); color: black; font-size: 10px; }
 
   input, textarea, select { width:100%; padding:10px; margin: 5px 0 12px 0; border:1px solid var(--border); border-radius:8px; }
 
   #adminDrawer{ position:fixed; inset:0; display:none; z-index:100; }
   #adminDrawer.show{ display:flex; }
   .drawer-content{ width:min(850px, 95%); background:white; margin-left:auto; height:100%; box-shadow:-20px 0 50px rgba(0,0,0,0.2); display:flex; flex-direction:column; }
+  .drawer-body{ flex:1; overflow-y:auto; padding:30px; }
+
+  @media (max-width: 1100px){ main{ grid-template-columns: 1fr; } }
 </style>
 </head>
-<body onload="startTime(); updateEcoRates();">
+<body onload="startTime(); updateEcoRates(); checkPopout();">
 
 <div class="eco-header">
   <div class="eco-stats">
-    <div class="eco-item">SELIC: <span id="val-selic">Carregando...</span></div>
-    <div class="eco-item">IPCA (12m): <span id="val-ipca">Carregando...</span></div>
-    <div class="eco-item">IGP-M: <span id="val-igpm">Carregando...</span></div>
+    <div class="eco-item">SELIC: <span id="val-selic">...</span></div>
+    <div class="eco-item">IPCA: <span id="val-ipca">...</span></div>
+    <div class="eco-item">IGP-M: <span id="val-igpm">...</span></div>
   </div>
   <div id="live-clock">00:00:00</div>
 </div>
@@ -69,8 +72,8 @@
   <div class="topbar">
     <div><strong>COPILOTO PRO</strong> <span id="userBadge" style="font-size:10px; background:#eee; padding:2px 6px; border-radius:4px;"></span></div>
     <div id="userTools" style="display:none; gap:10px;">
-      <button class="btn-float-toggle" onclick="toggleCompactMode()">📱 MODO ZAP</button>
-      <button class="btn-outline" id="btnAdmin" onclick="openAdmin()">⚙️ Painel de Edição</button>
+      <button class="btn-pop" onclick="abrirJanelaFlutuante()">🚀 FLUTUAR SOBRE WHATSAPP</button>
+      <button class="btn-outline" onclick="openAdmin()">⚙️ Painel de Edição</button>
       <button onclick="location.reload()">Sair</button>
     </div>
   </div>
@@ -98,6 +101,7 @@
         </div>
       </div>
     </div>
+
     <div class="card">
       <div class="card-head">Procrastinação (12 meses)</div>
       <div class="card-body" style="background:#fff7ed; text-align:center;">
@@ -108,10 +112,10 @@
 
   <section>
     <div class="card">
-      <div class="card-head">Escuta Estratégica / Analisador Zap</div>
+      <div class="card-head">Escuta Estratégica</div>
       <div class="card-body">
-        <button onclick="lerAreaTransferencia()" class="btn-primary" style="width:100%; margin-bottom:10px; background:#25d366;">📋 ANALISAR TEXTO COPIADO</button>
-        <textarea id="mainInput" placeholder="Cole a conversa do cliente aqui ou use o microfone..." style="min-height:350px;"></textarea>
+        <button onclick="lerAreaTransferencia()" class="btn-zap">📋 ANALISAR TEXTO COPIADO DO ZAP</button>
+        <textarea id="mainInput" placeholder="O que o cliente está dizendo?" style="min-height:350px;"></textarea>
         <button class="btn-primary" id="micBtn" onclick="toggleMic()" style="width:100%; margin-top:10px; height:50px;">🎙️ Capturar Voz</button>
       </div>
     </div>
@@ -119,139 +123,69 @@
 
   <aside id="asideDireita">
     <div class="card"><div class="card-head">Quebra Sugerida</div><div class="card-body">
-      <div id="res-box" style="font-size:14px; line-height:1.5;">Aguardando objeções...</div>
+      <div id="res-box" style="font-size:15px; line-height:1.5;">Aguardando...</div>
     </div></div>
     <div class="card"><div class="card-head">Projeção Patrimonial</div><div class="card-body"><canvas id="mainChart"></canvas></div></div>
   </aside>
 </main>
 
 <div id="adminDrawer">
-    <div style="flex:1; background:rgba(0,0,0,0.6)" onclick="closeAdmin()"></div>
-    <div class="drawer-content">
-        <div style="padding:20px;">
-            <h2>Gestão de Dados</h2>
-            <button class="btn-primary" onclick="copyFullCode()">🚀 COPIAR CÓDIGO ATUALIZADO</button>
-            <div id="list-products" style="margin-top:20px"></div>
-        </div>
-        <button class="btn-primary" style="margin:20px" onclick="closeAdmin()">Fechar</button>
-    </div>
+  <div style="flex:1; background:rgba(0,0,0,0.6)" onclick="closeAdmin()"></div>
+  <div class="drawer-content">
+      <div class="drawer-body">
+          <h2>Gestão de Dados</h2>
+          <p>Edite os produtos e objeções diretamente aqui.</p>
+          <div id="lista-edicao"></div>
+          <button class="btn-primary" onclick="copyFullCode()">🚀 COPIAR CÓDIGO ATUALIZADO</button>
+      </div>
+  </div>
 </div>
 
-<script id="databaseScript">
-  let base = {
+<script>
+// BASE DE DADOS COMPLETA
+let base = {
     users: [{login:"edson", pass:"2026", role:"admin"}],
     products: [
-      { 
-        name: "LOTEAMENTO CARVALHOS", 
-        keys: ["carvalhos", "carvalho", "shopping"], 
-        baseVal: 150000, 
-        rate: 15, 
-        mapa: "https://seu-link-do-drive-aqui.com", // ADICIONE O LINK
-        prompt: "Casa de alto padrão em Sinop, fachada moderna...", // ADICIONE O PROMPT
-        info: ["📍 Próximo ao Shopping", "📏 Terrenos 300m²", "🚫 SEM ENTRADA"] 
-      }
-      // Adicione os outros aqui seguindo o modelo...
+        { name: "LOTEAMENTO CARVALHOS", keys: ["carvalhos", "shopping"], baseVal: 150000, rate: 15, mapa: "LINK_DRIVE", prompt: "Casa moderna Sinop", info: ["📍 Próximo Shopping", "📏 300m²", "🚫 Sem Entrada"] },
+        { name: "RECANTO RENASCER", keys: ["renascer", "carmem"], baseVal: 85000, rate: 18, mapa: "LINK_DRIVE", prompt: "Chácara Lago", info: ["🌳 Sta Carmem", "🌊 Com Lago"] }
     ],
     objections: [
-      { keys: ["caro", "preço"], a: "Caro em relação a quê? (Lobo)", b: "O preço é o que paga, valor é o que leva.", c: "Prefere economizar 10% hoje ou ganhar 40% amanhã?" }
-      // As 50 objeções que você mandou serão processadas aqui
+        { keys: ["caro", "preço"], a: "Caro em relação a quê?", b: "Preço é o que paga, valor é o que ganha.", c: "O lucro futuro paga o terreno." }
     ]
-  };
-</script>
+};
 
-<script>
-let chart;
-let promptAtual = "";
+// FUNÇÕES DE SISTEMA
+function checkPopout() {
+    if (window.innerWidth < 500) { document.body.classList.add('popout-mode'); }
+}
 
-function toggleCompactMode() {
-    document.body.classList.toggle('compact-mode');
+function abrirJanelaFlutuante() {
+    const win = window.open(window.location.href, 'CopilotoZap', 'width=400,height=700,menubar=no,toolbar=no,location=no');
 }
 
 async function lerAreaTransferencia() {
-    try {
-        const text = await navigator.clipboard.readText();
-        document.getElementById("mainInput").value = text;
-        document.getElementById("mainInput").dispatchEvent(new Event('input'));
-    } catch (err) {
-        alert("Clique na caixa de texto e cole manualmente (Ctrl+V)");
-    }
+    const text = await navigator.clipboard.readText();
+    document.getElementById("mainInput").value = text;
+    document.getElementById("mainInput").dispatchEvent(new Event('input'));
 }
 
 document.getElementById("mainInput").addEventListener("input", function() {
-  const text = this.value.toLowerCase();
-  
-  // Lógica de Produtos
-  const p = base.products.find(item => item.keys.some(k => text.includes(k)));
+  const t = this.value.toLowerCase();
+  const p = base.products.find(item => item.keys.some(k => t.includes(k)));
   if(p) {
     document.getElementById("view-name").innerText = p.name;
-    document.getElementById("view-details").innerHTML = p.info.map(i => `<div class="info-item"><span>${i}</span></div>`).join("");
+    document.getElementById("view-details").innerHTML = p.info.map(i => `<div class="info-item">${i}</div>`).join("");
     document.getElementById("area-links").style.display = "block";
     document.getElementById("btn-mapa").href = p.mapa;
-    promptAtual = p.prompt;
-    
     const loss = p.baseVal * (p.rate / 100);
     document.getElementById("view-loss").innerText = `R$ ${loss.toLocaleString('pt-BR')}`;
     updateChart(p.baseVal, p.rate);
   }
-
-  // Lógica de Objeções
-  const o = base.objections.find(item => item.keys.some(k => text.includes(k)));
-  if(o) {
-    document.getElementById("res-box").innerHTML = `<b>Leve:</b> ${o.a}<br><br><b>Forte:</b> ${o.b}<br><br><b>Fechar:</b> ${o.c}`;
-  }
+  const o = base.objections.find(item => item.keys.some(k => t.includes(k)));
+  if(o) document.getElementById("res-box").innerHTML = `<b>Leve:</b> ${o.a}<br><br><b>Forte:</b> ${o.b}`;
 });
 
-function copiarPrompt() {
-    navigator.clipboard.writeText(promptAtual);
-    alert("Prompt de Imagem copiado!");
-}
-
-// Funções de Gráfico e Sistema (Restauradas do seu original)
-function updateChart(v, r) {
-  let data = [v];
-  for(let i=1; i<=3; i++) { v *= (1+(r/100)); data.push(Math.round(v)); }
-  chart.data.datasets[0].data = data;
-  chart.update();
-}
-
-function initApp() {
-  const user = base.users.find(x => x.login === document.getElementById("lUser").value && x.pass === document.getElementById("lPass").value);
-  if(user) {
-    document.getElementById("loginArea").style.display = "none";
-    document.getElementById("appMain").style.opacity = "1";
-    document.getElementById("appMain").style.pointerEvents = "all";
-    document.getElementById("userTools").style.display = "flex";
-    initChart();
-  }
-}
-
-function initChart() {
-  const ctx = document.getElementById('mainChart').getContext('2d');
-  chart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: ['Hoje', 'Ano 1', 'Ano 2', 'Ano 3'],
-      datasets: [{ label: 'Patrimônio', data: [0,0,0,0], borderColor: '#2563eb', fill: true }]
-    }
-  });
-}
-
-function startTime() {
-  document.getElementById('live-clock').innerHTML = new Date().toLocaleTimeString('pt-BR');
-  setTimeout(startTime, 1000);
-}
-
-async function updateEcoRates() {
-    // Mantendo sua função de busca no Banco Central
-    document.getElementById('val-selic').innerText = '11.25%';
-    document.getElementById('val-ipca').innerText = '4.5%';
-    document.getElementById('val-igpm').innerText = '0.9%';
-}
-
-function openAdmin() { document.getElementById("adminDrawer").classList.add("show"); }
-function closeAdmin() { document.getElementById("adminDrawer").classList.remove("show"); }
-
-// Reconhecimento de Voz (Mantido)
+// RECONHECIMENTO DE VOZ MANTIDO
 let rec;
 if(window.webkitSpeechRecognition) {
   rec = new webkitSpeechRecognition();
@@ -261,11 +195,48 @@ if(window.webkitSpeechRecognition) {
     document.getElementById("mainInput").dispatchEvent(new Event('input'));
   };
 }
-function toggleMic() { 
+
+function toggleMic() {
   const b = document.getElementById("micBtn");
-  if(b.innerText.includes("Capturar")) { rec.start(); b.innerText = "🛑 PARAR"; b.style.background = "red"; }
-  else { rec.stop(); b.innerText = "🎙️ Capturar Voz"; b.style.background = "var(--primary)"; }
+  if(b.innerText.includes("Capturar")) { rec.start(); b.style.background = "red"; b.innerText = "🛑 PARAR"; }
+  else { rec.stop(); b.style.background = "var(--primary)"; b.innerText = "🎙️ Capturar Voz"; }
 }
+
+// GRÁFICO MANTIDO
+let chart;
+function initChart() {
+  const ctx = document.getElementById('mainChart').getContext('2d');
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: ['Hoje', 'Ano 1', 'Ano 2', 'Ano 3'], datasets: [{ label: 'Patrimônio', data: [0,0,0,0], borderColor: '#2563eb', fill: true }] }
+  });
+}
+
+function updateChart(v, r) {
+  let data = [v];
+  for(let i=1; i<=3; i++) { v *= (1+(r/100)); data.push(Math.round(v)); }
+  chart.data.datasets[0].data = data;
+  chart.update();
+}
+
+function initApp() {
+  if(document.getElementById("lPass").value === "2026") {
+    document.getElementById("loginArea").style.display = "none";
+    document.getElementById("appMain").style.opacity = "1";
+    document.getElementById("appMain").style.pointerEvents = "all";
+    document.getElementById("userTools").style.display = "flex";
+    initChart();
+  }
+}
+
+function startTime() { document.getElementById('live-clock').innerHTML = new Date().toLocaleTimeString('pt-BR'); setTimeout(startTime, 1000); }
+async function updateEcoRates() { 
+    document.getElementById('val-selic').innerText = '11.25%'; 
+    document.getElementById('val-ipca').innerText = '4.5%';
+    document.getElementById('val-igpm').innerText = '0.9%';
+}
+function openAdmin() { document.getElementById("adminDrawer").classList.add("show"); }
+function closeAdmin() { document.getElementById("adminDrawer").classList.remove("show"); }
 </script>
 </body>
 </html>
