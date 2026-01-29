@@ -2,173 +2,119 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>COPILOTO PRO — Hub Dinâmico</title>
+<title>COPILOTO PRO - SEMPRE NO TOPO</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-  :root{ 
-    --bg:#0f172a; --panel:#1e293b; --text:#f8fafc; 
-    --primary:#3b82f6; --accent:#f59e0b; --success:#22c55e; 
-    --border:#334155; --radius:12px; 
-  }
-  *{box-sizing:border-box; font-family: 'Inter', sans-serif;}
-  body { margin:0; background: var(--bg); color: var(--text); padding: 10px; overflow: hidden; height: 100vh; width: 100vw; }
-
-  /* CAIXA PRINCIPAL (MINIMIZÁVEL) */
-  #mainControl {
-    position: fixed; top: 10px; left: 10px; width: 300px;
-    z-index: 9999; background: var(--panel); border: 2px solid var(--primary);
-    border-radius: var(--radius); box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-    transition: 0.3s;
-  }
-
-  .header-drag { padding: 8px 12px; background: var(--primary); cursor: move; display: flex; justify-content: space-between; align-items: center; border-radius: 10px 10px 0 0; }
+  :root { --bg:#020617; --primary:#3b82f6; --accent:#f59e0b; --success:#22c55e; }
+  body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; padding: 15px; overflow: hidden; }
   
-  .content-area { padding: 12px; }
-  textarea { width: 100%; height: 60px; background: #020617; color: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-size: 12px; resize: none; }
-
-  /* BOTÕES QUE SURGEM */
-  #dynamicButtons { display: none; margin-top: 10px; gap: 5px; grid-template-columns: repeat(3, 1fr); animation: pop 0.3s ease; }
-  .btn-mini { font-size: 9px; padding: 5px; border-radius: 4px; border: none; font-weight: bold; cursor: pointer; color: white; text-align: center; }
-
-  /* CAIXAS DE TEXTO (STIKIES) */
-  .sticky-note {
-    position: fixed; width: 220px; background: #fff; color: #334155;
-    padding: 10px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-    border-left: 5px solid var(--accent); animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    z-index: 9000; font-size: 12px;
-  }
-  .sticky-header { display: flex; justify-content: space-between; font-weight: 800; font-size: 10px; margin-bottom: 5px; color: var(--muted); }
-
-  @keyframes pop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-  @keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-
-  .hidden { display: none !important; }
+  /* Canvas escondido que gera a imagem que flutua */
+  #pipCanvas { background: #0f172a; display: none; }
+  
+  .hub { border: 2px solid var(--primary); padding: 15px; border-radius: 15px; background: #1e293b; }
+  textarea { width: 100%; height: 60px; margin: 10px 0; border-radius: 8px; border: none; padding: 10px; }
+  .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: 900; cursor: pointer; color: white; margin-bottom: 10px; }
+  
+  video { width: 300px; border-radius: 12px; border: 2px solid var(--accent); display: none; }
 </style>
 </head>
-<body onload="updateEcoRates()">
+<body>
 
-<div id="loginArea" style="position:fixed; inset:0; background:var(--bg); z-index:10000; display:flex; align-items:center; justify-content:center;">
-  <div style="background:var(--panel); padding:30px; border-radius:15px; width:300px; text-align:center;">
-    <h3>COPILOTO PRO</h3>
-    <input id="lPass" type="password" placeholder="Senha" value="2026" style="width:100%; padding:10px; margin-bottom:10px;">
-    <button onclick="initApp()" style="width:100%; background:var(--success); color:white; padding:10px; border-radius:8px; border:none;">ENTRAR</button>
-  </div>
+<div class="hub">
+    <div style="font-size: 12px; font-weight: 900; color: var(--accent); margin-bottom: 10px;">🚀 CONTROLE MESTRE</div>
+    
+    <button onclick="ativarFlutuante()" class="btn" style="background: var(--primary);">💎 ATIVAR MODO SEMPRE NO TOPO</button>
+    
+    <button onclick="lerZap()" class="btn" style="background: var(--success);">📋 ANALISAR WHATSAPP</button>
+    <textarea id="input" placeholder="O que o cliente disse?"></textarea>
+    
+    <div id="status" style="font-size: 10px; color: #94a3b8;">Modo: Aguardando comando...</div>
 </div>
 
-<div id="mainControl">
-  <div class="header-drag">
-    <span style="font-size:11px; font-weight:900;">🚀 COPILOTO HUB</span>
-    <button onclick="toggleMain()" style="background:none; border:none; color:white; font-size:16px; cursor:pointer;">−</button>
-  </div>
-  <div class="content-area" id="mainContent">
-    <button onclick="lerClipboard()" style="width:100%; background:var(--success); border:none; color:white; padding:8px; border-radius:5px; font-weight:bold; margin-bottom:8px; cursor:pointer;">📋 LER ZAP</button>
-    <textarea id="mainInput" placeholder="Aguardando conversa..."></textarea>
-    
-    <div id="dynamicButtons">
-        <button onclick="addNote('Mapa')" class="btn-mini" style="background:#4285F4">🗺️ MAPA</button>
-        <button onclick="addNote('Prompt')" class="btn-mini" style="background:#8E44AD">🎨 PROMPT</button>
-        <button onclick="addNote('Proposta')" class="btn-mini" style="background:#E67E22">📝 PROP.</button>
-    </div>
-    
-    <button id="micBtn" onclick="toggleMic()" style="width:100%; margin-top:8px; font-size:10px; background:var(--primary); color:white; border:none; padding:5px; border-radius:4px;">🎙️ VOZ</button>
-  </div>
-</div>
-
-<div id="notesContainer"></div>
-
-<script id="databaseScript">
-let base = {
-    products: [
-        { name: "LOTEAMENTO CARVALHOS", keys: ["carvalhos", "shopping"], info: "📍 Próximo Shopping | R$ 1.299/mês" },
-        { name: "RECANTO RENASCER", keys: ["renascer", "carmem"], info: "🌊 Com Lago | R$ 695/mês" }
-    ],
-    objections: [
-        { keys: ["caro", "preço"], r: "O lucro futuro cobre o custo de hoje. Valorização de 15% ao ano!" }
-    ]
-};
-</script>
+<canvas id="pipCanvas" width="400" height="500"></canvas>
+<video id="pipVideo" autoplay muted playsinline></video>
 
 <script>
-let notesCount = 0;
+const canvas = document.getElementById('pipCanvas');
+const ctx = canvas.getContext('2d');
+const video = document.getElementById('pipVideo');
+let notes = [];
 
-function initApp() {
-    if(document.getElementById("lPass").value === "2026") {
-        document.getElementById("loginArea").classList.add("hidden");
+const base = {
+    products: [
+        { name: "LOTE CARVALHOS", keys: ["carvalhos", "shopping"], info: "R$ 1.299/mês | 300m²" },
+        { name: "RENASCER", keys: ["renascer", "lago"], info: "R$ 695/mês | Com Lago" }
+    ],
+    objections: [
+        { keys: ["caro", "preço"], r: "Lucro futuro > Custo de hoje." }
+    ]
+};
+
+// FUNÇÃO PARA ATIVAR O MODO QUE FICA POR CIMA DE TUDO
+async function ativarFlutuante() {
+    const stream = canvas.captureStream();
+    video.srcObject = stream;
+    try {
+        await video.play();
+        await video.requestPictureInPicture();
+    } catch (e) {
+        alert("Erro: O seu navegador precisa de permissão para abrir janelas flutuantes.");
     }
 }
 
-function toggleMain() {
-    const content = document.getElementById("mainContent");
-    content.classList.toggle("hidden");
-}
-
-async function lerClipboard() {
+async function lerZap() {
     const text = await navigator.clipboard.readText();
-    document.getElementById("mainInput").value = text;
-    analisar(text.toLowerCase());
+    document.getElementById("input").value = text;
+    processar(text.toLowerCase());
 }
 
-function analisar(t) {
+function processar(t) {
     const p = base.products.find(x => x.keys.some(k => t.includes(k)));
     const o = base.objections.find(x => x.keys.some(k => t.includes(k)));
 
-    if(p) {
-        document.getElementById("dynamicButtons").style.display = "grid";
-        addNote(p.name, p.info);
-    }
-    if(o) {
-        addNote("Objeção", o.r);
-    }
-}
-
-function addNote(title, content) {
-    const container = document.getElementById("notesContainer");
+    notes = []; // Limpa
+    if(p) notes.push({t: p.name, c: p.info, color: "#3b82f6"});
+    if(o) notes.push({t: "OBJEÇÃO", c: o.r, color: "#f59e0b"});
     
-    // Limite de 5 caixas: se chegar em 5, remove a mais antiga
-    if (container.childElementCount >= 5) {
-        container.removeChild(container.firstChild);
-    }
+    desenharPainel();
+}
 
-    const note = document.createElement("div");
-    note.className = "sticky-note";
+// DESENHA TUDO NO CANVAS (QUE SERÁ O VÍDEO FLUTUANTE)
+function desenharPainel() {
+    // Fundo
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Posicionamento em cascata lateral
-    const offset = container.childElementCount * 130 + 10;
-    note.style.right = "20px";
-    note.style.top = offset + "px";
+    // Título
+    ctx.fillStyle = "#3b82f6";
+    ctx.font = "bold 20px Arial";
+    ctx.fillText("COPILOTO PRO", 20, 40);
 
-    note.innerHTML = `
-        <div class="sticky-header">
-            <span>${title.toUpperCase()}</span>
-            <button onclick="this.parentElement.parentElement.remove()" style="background:none; border:none; cursor:pointer;">✕</button>
-        </div>
-        <div>${content || "Ação solicitada..."}</div>
-    `;
+    // Caixas de Texto (Stickies)
+    notes.forEach((note, i) => {
+        const y = 70 + (i * 130);
+        ctx.fillStyle = note.color;
+        ctx.fillRect(20, y, 360, 110);
+        
+        ctx.fillStyle = "white";
+        ctx.font = "bold 16px Arial";
+        ctx.fillText(note.t, 35, y + 30);
+        
+        ctx.font = "14px Arial";
+        ctx.fillText(note.c, 35, y + 65);
+    });
 
-    container.appendChild(note);
+    if(notes.length === 0) {
+        ctx.fillStyle = "#64748b";
+        ctx.fillText("Aguardando conversa no Zap...", 20, 100);
+    }
 }
 
-// RESTAURANDO FUNÇÃO DE VOZ
-function toggleMic() {
-    if(!window.webkitSpeechRecognition) return alert("Navegador incompatível");
-    const rec = new webkitSpeechRecognition();
-    rec.lang = 'pt-BR';
-    rec.onresult = (e) => {
-        const t = e.results[0][0].transcript;
-        document.getElementById("mainInput").value = t;
-        analisar(t.toLowerCase());
-    };
-    rec.start();
-}
+// Atualiza o painel a cada segundo
+setInterval(desenharPainel, 1000);
 
-async function updateEcoRates() {
-    // Restaurando busca de taxas (Selic etc) do seu arquivo original
-    try {
-        const r = await fetch(`https://api.bcb.gov.br/dados/serie/bcdata.sgs.11/dados/ultimos/1?formato=json`);
-        const d = await r.json();
-        console.log("Selic Atual:", d[0].valor);
-    } catch(e) {}
+function initApp() {
+    desenharPainel();
 }
 </script>
 </body>
