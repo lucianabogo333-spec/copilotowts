@@ -3,156 +3,104 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>COPILOTO PRO — Balão Inteligente</title>
+<title>COPILOTO PRO — Hub Dinâmico</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
   :root{ 
     --bg:#0f172a; --panel:#1e293b; --text:#f8fafc; 
     --primary:#3b82f6; --accent:#f59e0b; --success:#22c55e; 
-    --muted:#64748b; --border:#334155; --radius:12px; 
+    --border:#334155; --radius:12px; 
   }
   *{box-sizing:border-box; font-family: 'Inter', sans-serif;}
-  body { margin:0; background: var(--bg); color: var(--text); padding: 8px; overflow-x: hidden; }
+  body { margin:0; background: var(--bg); color: var(--text); padding: 10px; overflow: hidden; height: 100vh; width: 100vw; }
 
-  /* CABEÇALHO ECONÔMICO */
-  .eco-header { background: #020617; padding: 8px; border-radius: 8px; display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 10px; border: 1px solid var(--border); }
-  .eco-item span { color: var(--accent); font-weight: 800; }
+  /* CAIXA PRINCIPAL (MINIMIZÁVEL) */
+  #mainControl {
+    position: fixed; top: 10px; left: 10px; width: 300px;
+    z-index: 9999; background: var(--panel); border: 2px solid var(--primary);
+    border-radius: var(--radius); box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    transition: 0.3s;
+  }
 
-  /* CARDS */
-  .card { background: var(--panel); border-radius: var(--radius); border: 1px solid var(--border); padding: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); margin-bottom: 10px; }
-  .card-label { font-size: 10px; text-transform: uppercase; color: var(--accent); font-weight: 800; margin-bottom: 5px; }
-
-  /* INPUTS */
-  textarea { width: 100%; height: 90px; background: #020617; color: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-size: 13px; resize: none; outline: none; }
+  .header-drag { padding: 8px 12px; background: var(--primary); cursor: move; display: flex; justify-content: space-between; align-items: center; border-radius: 10px 10px 0 0; }
   
-  /* BOTÕES */
-  button { cursor: pointer; border: none; font-weight: 700; border-radius: 8px; padding: 10px; transition: 0.2s; }
-  .btn-main { background: var(--success); color: white; width: 100%; margin-bottom: 5px; }
-  .btn-mic { background: var(--primary); color: white; width: 100%; margin-top: 5px; font-size: 12px; }
-  
-  /* MINI BOTÕES DINÂMICOS */
-  #actionButtons { display: none; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 10px; }
-  .btn-action { font-size: 10px; padding: 8px; border-radius: 6px; text-align: center; color: white; text-decoration: none; font-weight: bold; }
-  .bg-mapa { background: #4285F4; }
-  .bg-prompt { background: #8E44AD; }
-  .bg-proposta { background: #E67E22; }
+  .content-area { padding: 12px; }
+  textarea { width: 100%; height: 60px; background: #020617; color: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-size: 12px; resize: none; }
 
-  /* PROJEÇÃO E PERDA */
-  .loss-box { background: #450a0a; border: 1px solid #991b1b; padding: 10px; border-radius: 8px; text-align: center; margin-top: 10px; }
-  .loss-value { color: #f87171; font-size: 18px; font-weight: 900; }
-  
-  /* ADMIN DRAWER */
-  #adminDrawer { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:none; z-index:1000; padding:20px; overflow-y:auto; }
-  #adminDrawer.show { display:block; }
-  .drawer-content { background: #fff; color: #334155; padding: 20px; border-radius: 12px; }
-  label { font-size: 11px; font-weight: bold; display: block; margin-top: 10px; color: #64748b; }
-  .drawer-content input, .drawer-content textarea { background: #f1f5f9; border: 1px solid #cbd5e1; color: #000; width: 100%; padding: 8px; border-radius: 6px; }
+  /* BOTÕES QUE SURGEM */
+  #dynamicButtons { display: none; margin-top: 10px; gap: 5px; grid-template-columns: repeat(3, 1fr); animation: pop 0.3s ease; }
+  .btn-mini { font-size: 9px; padding: 5px; border-radius: 4px; border: none; font-weight: bold; cursor: pointer; color: white; text-align: center; }
 
-  #mainChart { max-height: 150px; }
+  /* CAIXAS DE TEXTO (STIKIES) */
+  .sticky-note {
+    position: fixed; width: 220px; background: #fff; color: #334155;
+    padding: 10px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    border-left: 5px solid var(--accent); animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 9000; font-size: 12px;
+  }
+  .sticky-header { display: flex; justify-content: space-between; font-weight: 800; font-size: 10px; margin-bottom: 5px; color: var(--muted); }
+
+  @keyframes pop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  .hidden { display: none !important; }
 </style>
 </head>
-<body onload="startTime(); updateEcoRates(); checkPopout();">
+<body onload="updateEcoRates()">
 
-<div id="loginArea" style="position:fixed; inset:0; background:var(--bg); z-index:2000; display:flex; align-items:center; justify-content:center; padding:20px;">
-  <div class="card" style="width:100%; max-width:350px;">
-    <h2 style="text-align:center;">COPILOTO PRO</h2>
-    <input id="lUser" type="text" placeholder="Usuário" value="edson" style="width:100%; padding:12px; margin-bottom:10px; border-radius:8px; border:none;">
-    <input id="lPass" type="password" placeholder="Senha" value="2026" style="width:100%; padding:12px; margin-bottom:15px; border-radius:8px; border:none;">
-    <button class="btn-main" onclick="initApp()">ACESSAR</button>
+<div id="loginArea" style="position:fixed; inset:0; background:var(--bg); z-index:10000; display:flex; align-items:center; justify-content:center;">
+  <div style="background:var(--panel); padding:30px; border-radius:15px; width:300px; text-align:center;">
+    <h3>COPILOTO PRO</h3>
+    <input id="lPass" type="password" placeholder="Senha" value="2026" style="width:100%; padding:10px; margin-bottom:10px;">
+    <button onclick="initApp()" style="width:100%; background:var(--success); color:white; padding:10px; border-radius:8px; border:none;">ENTRAR</button>
   </div>
 </div>
 
-<div class="container">
-    <div class="eco-header">
-        <div class="eco-item">SELIC: <span id="val-selic">...</span></div>
-        <div class="eco-item">IPCA: <span id="val-ipca">...</span></div>
-        <div id="live-clock">00:00:00</div>
+<div id="mainControl">
+  <div class="header-drag">
+    <span style="font-size:11px; font-weight:900;">🚀 COPILOTO HUB</span>
+    <button onclick="toggleMain()" style="background:none; border:none; color:white; font-size:16px; cursor:pointer;">−</button>
+  </div>
+  <div class="content-area" id="mainContent">
+    <button onclick="lerClipboard()" style="width:100%; background:var(--success); border:none; color:white; padding:8px; border-radius:5px; font-weight:bold; margin-bottom:8px; cursor:pointer;">📋 LER ZAP</button>
+    <textarea id="mainInput" placeholder="Aguardando conversa..."></textarea>
+    
+    <div id="dynamicButtons">
+        <button onclick="addNote('Mapa')" class="btn-mini" style="background:#4285F4">🗺️ MAPA</button>
+        <button onclick="addNote('Prompt')" class="btn-mini" style="background:#8E44AD">🎨 PROMPT</button>
+        <button onclick="addNote('Proposta')" class="btn-mini" style="background:#E67E22">📝 PROP.</button>
     </div>
-
-    <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <span style="font-weight:900; font-size:12px;">ESTRATÉGIA ZAP</span>
-            <button onclick="openAdmin()" style="font-size:10px; background:none; color:var(--accent); padding:0;">⚙️ CONFIG</button>
-        </div>
-        <button onclick="lerClipboard()" class="btn-main">📋 ANALISAR WHATSAPP</button>
-        <textarea id="mainInput" placeholder="Copie a fala do cliente e clique acima..."></textarea>
-        <button id="micBtn" onclick="toggleMic()" class="btn-mic">🎙️ CAPTURAR VOZ</button>
-    </div>
-
-    <div id="resultCard" class="card" style="display:none;">
-        <div id="view-name" style="font-size: 16px; font-weight: 800; color: var(--primary);"></div>
-        <div id="view-details" style="font-size: 12px; color: #cbd5e1; margin-top:5px;"></div>
-        
-        <div id="actionButtons">
-            <a id="btn-mapa" href="#" target="_blank" class="btn-action bg-mapa">🗺️ MAPA</a>
-            <button onclick="copiarPrompt()" class="btn-action bg-prompt">🎨 PROMPT</button>
-            <a href="https://lucianabogo333-spec.github.io/formalizacao-proposta/" target="_blank" class="btn-action bg-proposta">📝 PROP.</a>
-        </div>
-
-        <div class="card-label" style="margin-top:15px;">💡 SUGESTÃO</div>
-        <div id="res-box" style="font-size: 13px; line-height: 1.4; border-left: 3px solid var(--accent); padding-left: 8px;"></div>
-        
-        <div class="loss-box">
-            <div class="card-label" style="color:#fca5a5">PERDA POR ESPERAR (12M)</div>
-            <div id="view-loss" class="loss-value">R$ 0,00</div>
-        </div>
-
-        <div style="margin-top:15px;">
-            <canvas id="mainChart"></canvas>
-        </div>
-    </div>
+    
+    <button id="micBtn" onclick="toggleMic()" style="width:100%; margin-top:8px; font-size:10px; background:var(--primary); color:white; border:none; padding:5px; border-radius:4px;">🎙️ VOZ</button>
+  </div>
 </div>
 
-<div id="adminDrawer">
-    <div class="drawer-content">
-        <h3>Painel Administrativo</h3>
-        <button class="btn-main" style="background:#000" onclick="copyFullCode()">🚀 COPIAR CÓDIGO GITHUB</button>
-        <div id="admin-lists" style="margin-top:15px; max-height: 300px; overflow-y: auto;">
-            </div>
-        <button class="btn-main" style="background:#64748b; margin-top:20px;" onclick="closeAdmin()">FECHAR</button>
-    </div>
-</div>
+<div id="notesContainer"></div>
 
 <script id="databaseScript">
-// BASE RESTAURADA E AMPLIADA [cite: 36, 50]
 let base = {
-    users: [{login:"edson", pass:"2026", role:"admin"}],
     products: [
-        { name: "LOTEAMENTO CARVALHOS", keys: ["carvalhos", "shopping", "300m"], baseVal: 150000, rate: 15, mapa: "#", prompt: "Casa moderna em Sinop Carvalhos", info: ["📍 Próximo ao Shopping", "🚫 SEM ENTRADA"] },
-        { name: "RECANTO RENASCER", keys: ["renascer", "carmem", "lago"], baseVal: 85000, rate: 18, mapa: "#", prompt: "Chácara com lago Sinop", info: ["🌊 Com Lago", "💡 Energia Trifásica"] }
+        { name: "LOTEAMENTO CARVALHOS", keys: ["carvalhos", "shopping"], info: "📍 Próximo Shopping | R$ 1.299/mês" },
+        { name: "RECANTO RENASCER", keys: ["renascer", "carmem"], info: "🌊 Com Lago | R$ 695/mês" }
     ],
     objections: [
-        { keys: ["caro", "preço", "valor"], a: "Caro em relação a quê?", b: "O lucro futuro cobre o custo de hoje.", c: "Prefere economizar agora ou ganhar 40% depois?" },
-        { keys: ["esposa", "marido", "sócio"], a: "Se você mostrar o lucro, eles vão apoiar.", b: "Você lidera a prosperidade da família.", c: "Vamos ligar agora e eu explico os números." }
+        { keys: ["caro", "preço"], r: "O lucro futuro cobre o custo de hoje. Valorização de 15% ao ano!" }
     ]
 };
 </script>
 
 <script>
-let chart;
-let promptAtual = "";
+let notesCount = 0;
 
-async function updateEcoRates() {
-    try {
-        const fetchRate = async (id) => {
-            const r = await fetch(`https://api.bcb.gov.br/dados/serie/bcdata.sgs.${id}/dados/ultimos/1?formato=json`);
-            const d = await r.json(); return d[0].valor;
-        };
-        document.getElementById('val-selic').innerText = await fetchRate(11) + '%';
-        document.getElementById('val-ipca').innerText = await fetchRate(433) + '%';
-    } catch (e) {
-        document.getElementById('val-selic').innerText = '11.25%';
-        document.getElementById('val-ipca').innerText = '4.5%';
+function initApp() {
+    if(document.getElementById("lPass").value === "2026") {
+        document.getElementById("loginArea").classList.add("hidden");
     }
 }
 
-function initApp() {
-    const u = document.getElementById("lUser").value;
-    const p = document.getElementById("lPass").value;
-    if(base.users.some(x => x.login === u && x.pass === p)) {
-        document.getElementById("loginArea").style.display = "none";
-        initChart();
-    } else { alert("Acesso negado"); }
+function toggleMain() {
+    const content = document.getElementById("mainContent");
+    content.classList.toggle("hidden");
 }
 
 async function lerClipboard() {
@@ -161,70 +109,66 @@ async function lerClipboard() {
     analisar(text.toLowerCase());
 }
 
-document.getElementById("mainInput").addEventListener("input", function() {
-    analisar(this.value.toLowerCase());
-});
-
 function analisar(t) {
-    const card = document.getElementById("resultCard");
-    const actions = document.getElementById("actionButtons");
-    const p = base.products.find(x => x.keys.some(k => t.includes(k.trim())));
-    const o = base.objections.find(x => x.keys.some(k => t.includes(k.trim())));
+    const p = base.products.find(x => x.keys.some(k => t.includes(k)));
+    const o = base.objections.find(x => x.keys.some(k => t.includes(k)));
 
-    if (p || o) {
-        card.style.display = "block";
-        if (p) {
-            document.getElementById("view-name").innerText = p.name;
-            document.getElementById("view-details").innerText = p.info.join(" | ");
-            document.getElementById("btn-mapa").href = p.mapa;
-            promptAtual = p.prompt;
-            actions.style.display = "grid"; 
-            const loss = p.baseVal * (p.rate / 100);
-            document.getElementById("view-loss").innerText = `R$ ${loss.toLocaleString('pt-BR')}`;
-            updateChart(p.baseVal, p.rate);
-        } else {
-            actions.style.display = "none";
-        }
-        if (o) {
-            document.getElementById("res-box").innerHTML = `<b>Leve:</b> ${o.a}<br><b>Forte:</b> ${o.b}`;
-        }
-    } else { card.style.display = "none"; }
+    if(p) {
+        document.getElementById("dynamicButtons").style.display = "grid";
+        addNote(p.name, p.info);
+    }
+    if(o) {
+        addNote("Objeção", o.r);
+    }
 }
 
-function initChart() {
-    const ctx = document.getElementById('mainChart').getContext('2d');
-    chart = new Chart(ctx, {
-        type: 'line',
-        data: { labels: ['Hoje', 'Ano 1', 'Ano 2', 'Ano 3'], datasets: [{ label: 'Valorização', data: [0,0,0,0], borderColor: '#3b82f6', fill: true, backgroundColor: 'rgba(59,130,246,0.1)' }] },
-        options: { plugins: { legend: { display: false } }, scales: { y: { display: false } } }
-    });
+function addNote(title, content) {
+    const container = document.getElementById("notesContainer");
+    
+    // Limite de 5 caixas: se chegar em 5, remove a mais antiga
+    if (container.childElementCount >= 5) {
+        container.removeChild(container.firstChild);
+    }
+
+    const note = document.createElement("div");
+    note.className = "sticky-note";
+    
+    // Posicionamento em cascata lateral
+    const offset = container.childElementCount * 130 + 10;
+    note.style.right = "20px";
+    note.style.top = offset + "px";
+
+    note.innerHTML = `
+        <div class="sticky-header">
+            <span>${title.toUpperCase()}</span>
+            <button onclick="this.parentElement.parentElement.remove()" style="background:none; border:none; cursor:pointer;">✕</button>
+        </div>
+        <div>${content || "Ação solicitada..."}</div>
+    `;
+
+    container.appendChild(note);
 }
 
-function updateChart(v, r) {
-    let data = [v]; for(let i=1; i<=3; i++) { v *= (1+(r/100)); data.push(Math.round(v)); }
-    chart.data.datasets[0].data = data; chart.update();
-}
-
+// RESTAURANDO FUNÇÃO DE VOZ
 function toggleMic() {
-    if(!window.webkitSpeechRecognition) return alert("Microfone não suportado");
+    if(!window.webkitSpeechRecognition) return alert("Navegador incompatível");
     const rec = new webkitSpeechRecognition();
     rec.lang = 'pt-BR';
     rec.onresult = (e) => {
-        document.getElementById("mainInput").value = e.results[0][0].transcript;
-        analisar(document.getElementById("mainInput").value.toLowerCase());
+        const t = e.results[0][0].transcript;
+        document.getElementById("mainInput").value = t;
+        analisar(t.toLowerCase());
     };
     rec.start();
 }
 
-function openAdmin() { document.getElementById("adminDrawer").classList.add("show"); }
-function closeAdmin() { document.getElementById("adminDrawer").classList.remove("show"); }
-function startTime() { document.getElementById('live-clock').innerHTML = new Date().toLocaleTimeString('pt-BR'); setTimeout(startTime, 1000); }
-function copiarPrompt() { navigator.clipboard.writeText(promptAtual); alert("Prompt Copiado!"); }
-function copyFullCode() {
-    const scriptDb = document.getElementById("databaseScript");
-    scriptDb.innerHTML = `\n  let base = ${JSON.stringify(base, null, 2)};\n`;
-    navigator.clipboard.writeText("<!DOCTYPE html>\n" + document.documentElement.outerHTML);
-    alert("CÓDIGO COPIADO!");
+async function updateEcoRates() {
+    // Restaurando busca de taxas (Selic etc) do seu arquivo original
+    try {
+        const r = await fetch(`https://api.bcb.gov.br/dados/serie/bcdata.sgs.11/dados/ultimos/1?formato=json`);
+        const d = await r.json();
+        console.log("Selic Atual:", d[0].valor);
+    } catch(e) {}
 }
 </script>
 </body>
